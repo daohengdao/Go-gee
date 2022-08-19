@@ -3,6 +3,7 @@ package gee
 import (
 	"log"
 	"net/http"
+	"strings"
 )
 
 // HandlerFunc 定义路由映射的处理方法
@@ -58,6 +59,10 @@ func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	group.addRoute("POST", pattern, handler)
 }
 
+func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
+}
+
 // Run 启动服务
 func (e *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, e)
@@ -65,6 +70,14 @@ func (e *Engine) Run(addr string) (err error) {
 
 //ServeHTTP 解析请求的路径，查找路由映射表，如果查到，就执行注册的处理方法
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := NewContext(w, r)
+	var middlewares []HandlerFunc
+
+	for _, group := range e.groups {
+		if strings.HasPrefix(r.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+	c := newContext(w, r)
+	c.handlers = middlewares
 	e.router.handle(c)
 }
