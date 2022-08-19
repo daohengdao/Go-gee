@@ -1,6 +1,7 @@
 package gee
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -9,26 +10,52 @@ type HandlerFunc func(c *Context)
 
 // Engine 实现ServeHTTP的接口
 type Engine struct {
+	*RouterGroup
 	router *router
+	groups []*RouterGroup //存储所有的Group
+}
+
+type RouterGroup struct {
+	prefix      string        //前缀
+	middlewares []HandlerFunc //中间件
+	parent      *RouterGroup  //父节点
+	engine      *Engine
 }
 
 // New Engine的构造函数
 func New() *Engine {
-	return &Engine{router: newRouter()}
+	engine := &Engine{router: newRouter()}
+	engine.RouterGroup = &RouterGroup{engine: engine}
+	engine.groups = []*RouterGroup{engine.RouterGroup}
+	return engine
 }
 
-func (e *Engine) addRoute(method, pattern string, handler HandlerFunc) {
-	e.router.addRoute(method, pattern, handler)
+// Group 创建新的RouterGroup
+func (group *RouterGroup) Group(prefix string) *RouterGroup {
+	engine := group.engine
+	newGroup := &RouterGroup{
+		prefix: group.prefix + prefix,
+		parent: group,
+		engine: engine,
+	}
+	engine.groups = append(engine.groups, newGroup)
+	return newGroup
+}
+
+func (group *RouterGroup) addRoute(method, comp string, handler HandlerFunc) {
+	pattern := group.prefix + comp
+	log.Printf("Route %4s - %s", method, pattern)
+	group.engine.router.addRoute(method, pattern, handler)
 }
 
 // GET 添加GET请求
-func (e *Engine) GET(pattern string, handler HandlerFunc) {
-	e.addRoute("GET", pattern, handler)
+func (group *RouterGroup) GET(pattern string, handler HandlerFunc) {
+	group.addRoute("GET", pattern, handler)
 }
 
 // POST 添加POST请求
-func (e *Engine) POST(pattern string, handler HandlerFunc) {
-	e.addRoute("POST", pattern, handler)
+func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
+	group.addRoute("POST", pattern, handler)
 }
 
 // Run 启动服务
