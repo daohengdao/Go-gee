@@ -15,9 +15,9 @@ type HandlerFunc func(c *Context)
 type Engine struct {
 	*RouterGroup
 	router        *router
-	groups        []*RouterGroup //存储所有的Group
-	htmlTemplates *template.Template
-	funcMap       template.FuncMap
+	groups        []*RouterGroup     //存储所有的Group
+	htmlTemplates *template.Template //将所有的模板加载进内存
+	funcMap       template.FuncMap   //所有的自定义模板渲染函数
 }
 
 func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
@@ -40,6 +40,13 @@ func New() *Engine {
 	engine := &Engine{router: newRouter()}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
+	return engine
+}
+
+// Default 默认使用中间件Logger和Recovery
+func Default() *Engine {
+	engine := New()
+	engine.Use(Logger(), Recovery())
 	return engine
 }
 
